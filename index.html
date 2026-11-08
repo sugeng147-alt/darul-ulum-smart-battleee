@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Darul Ulum Smart Battle Online</title><script src="/socket.io/socket.io.js"></script>
+<style>
+:root{--navy:#10233f;--blue:#1769aa;--gold:#ffd166;--bg:#f3f7fc}*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(145deg,#10233f,#1769aa);font-family:system-ui,Segoe UI,sans-serif;color:#10233f;min-height:100vh}
+.wrap{max-width:1050px;margin:auto;padding:18px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;color:white}
+.brand{font-size:clamp(20px,4vw,29px);font-weight:950}.brand span{color:var(--gold)}.pill{padding:8px 12px;border:1px solid #ffffff50;background:#ffffff20;border-radius:99px;color:white}
+.panel{background:var(--bg);border-radius:20px;padding:clamp(16px,3vw,28px);margin-top:16px;box-shadow:0 18px 45px #06152b55}.hidden{display:none!important}
+h1{font-size:clamp(27px,5vw,43px);margin:5px 0 12px}p{line-height:1.5}.muted{color:#63748a}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+input{width:100%;padding:13px;border:1px solid #cbd6e2;border-radius:11px;font:inherit;margin:6px 0 12px}
+button{border:0;border-radius:12px;padding:12px 17px;background:var(--gold);font-weight:850;cursor:pointer;color:#15243a}button:disabled{opacity:.45;cursor:not-allowed}.primary{background:#1769aa;color:white}
+label{font-weight:750}.tag{display:inline-block;padding:5px 9px;border-radius:8px;background:#e1efff;color:#1769aa;font-size:12px;font-weight:850}
+.roomcode{font-size:clamp(30px,7vw,54px);font-weight:950;letter-spacing:5px;color:#1769aa}
+.players{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px;margin-top:12px}
+.player{background:white;border:1px solid #dce5ee;border-radius:11px;padding:10px;font-weight:700}.player small{display:block;color:#6b7c8e;font-weight:500}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.stats{display:flex;gap:8px;flex-wrap:wrap}.stat{background:#e5edf7;border-radius:10px;padding:9px 12px;font-weight:800}
+.progress{height:10px;background:#dce6f0;border-radius:20px;overflow:hidden;margin:14px 0}.bar{height:100%;background:#25ad88;width:0%}
+.q{font-size:clamp(19px,3vw,25px);font-weight:850;line-height:1.4;margin:20px 0}.answers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.answer{background:white;border:2px solid #d8e2ed;text-align:left;padding:15px;border-radius:13px;font-weight:750;min-height:62px}
+.answer:hover{border-color:#1769aa}.answer:disabled{opacity:1}.answer.good{background:#d9f8e9;border-color:#20a66c}.answer.bad{background:#ffe4e1;border-color:#dc6259}
+.note{background:#e8f0fa;border-radius:12px;padding:13px;margin-top:13px}.rank{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #e1e8ef}
+.err{color:#b42318;font-weight:700;min-height:24px}.success{color:#087443;font-weight:700}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+footer{text-align:center;color:#dceafa;padding:18px;font-size:12px}
+@media(max-width:650px){.grid,.answers{grid-template-columns:1fr}.panel{border-radius:16px}}
+</style></head><body><div class="wrap">
+<header><div class="brand">⚡ DARUL ULUM <span>SMART BATTLE ONLINE</span></div><div class="pill">IPA KELAS IX • 40 SOAL • MAKS. 50 MURID</div></header>
+<section id="home" class="panel">
+<span class="tag">MULTIPLAYER REAL-TIME</span><h1>⚔️ Arena Battle IPA</h1>
+<p class="muted">Guru membuat ruang dan membagikan kode. Hingga 50 murid bergabung dari HP, tablet, atau komputer masing-masing. Semua soal dan skor tersinkron melalui server.</p>
+<div class="grid">
+<div><h3>👩‍🏫 Guru / Host</h3><label>Nama guru</label><input id="teacherName" placeholder="Nama guru"><button class="primary" id="createBtn">BUAT RUANG BATTLE</button></div>
+<div><h3>🧑‍🎓 Murid</h3><label>Nama murid</label><input id="studentName" placeholder="Nama murid"><label>Kode ruang dari guru</label><input id="joinCode" placeholder="Contoh: A1B2C3" maxlength="6"><button id="joinBtn">GABUNG RUANG</button></div>
+</div><div class="err" id="homeError"></div>
+<div class="note"><b>Perlu diketahui:</b> aplikasi ini adalah versi web multiplayer yang membutuhkan hosting Node.js (misalnya Render atau Railway). File HTML saja tidak cukup untuk menyinkronkan 50 perangkat.</div>
+</section>
+<section id="lobby" class="panel hidden">
+<div class="top"><div><span class="tag">RUANG MENUNGGU</span><h2>Bagikan kode ini kepada murid</h2><div class="roomcode" id="roomCode">------</div><p class="muted">Murid membuka alamat web yang sama, lalu memasukkan kode ruang.</p></div>
+<div class="stats"><div class="stat">👥 <span id="playerCount">0</span>/50 pemain</div><div class="stat">📚 40 soal IPA</div></div></div>
+<h3>Daftar pemain</h3><div id="playerList" class="players"></div><div class="actions"><button class="primary" id="startBtn">MULAI BATTLE</button><button id="backBtn">Kembali</button></div><p class="muted" id="hostHint">Menunggu guru memulai permainan.</p><div class="err" id="lobbyError"></div>
+</section>
+<section id="game" class="panel hidden">
+<div class="top"><div><span class="tag" id="topic">MATERI</span><h2>⚔️ Pertanyaan Battle</h2></div><div class="stats"><div class="stat">👤 <span id="myName"></span></div><div class="stat">⭐ <span id="myScore">0</span></div><div class="stat">⏱ <span id="clock">25</span>s</div></div></div>
+<div class="progress"><div id="bar" class="bar"></div></div><div class="top"><b id="qNumber">Soal 1 / 40</b><span class="muted" id="progressText">Jawaban masuk: 0/0</span></div>
+<div class="q" id="question"></div><div class="answers" id="answers"></div><div class="note" id="feedback">Pilih jawabanmu. Jawaban hanya bisa dikirim sekali.</div>
+<div class="actions"><button class="primary hidden" id="nextBtn">SOAL BERIKUTNYA</button></div>
+<h3>Papan skor sementara</h3><div id="liveRanks"></div>
+</section>
+<section id="finished" class="panel hidden"><span class="tag">PERTANDINGAN SELESAI</span><h1>🏆 Hasil Battle</h1><p id="finishMessage"></p><div id="finalRanks"></div><div class="actions"><button id="homeBtn">Kembali ke halaman awal</button></div></section>
+<footer>Darul Ulum Smart Battle Online • Gunakan dengan pendampingan guru</footer></div>
+<script>
+const QUESTIONS = [
+["Sistem saraf","Bagian sel saraf yang berfungsi untuk menerima impuls (rangsangan) dari sel saraf lain dan meneruskannya ke badan sel adalah...",["Akson","Dendrit","Selubung mielin","Nodus Ranvier"],1,"Dendrit menerima impuls dari sel lain lalu meneruskannya ke badan sel."],
+["Sistem saraf","Bagian akson yang tidak tertutup oleh selubung mielin dan berfungsi mempercepat jalannya impuls saraf disebut...",["Dendrit","Sel Schwann","Nodus Ranvier","Sinapsis"],2,"Nodus Ranvier merupakan bagian akson tanpa mielin yang membantu mempercepat transmisi impuls."],
+["Sistem saraf","Urutan jalannya impuls pada gerak sadar yang benar adalah...",["Reseptor → saraf sensorik → sumsum tulang belakang → saraf motorik → efektor","Reseptor → saraf motorik → otak → saraf sensorik → efektor","Reseptor → saraf sensorik → otak → saraf motorik → efektor","Efektor → saraf sensorik → otak → saraf motorik → reseptor"],2,"Gerak sadar diolah di otak sebelum perintah diteruskan ke efektor."],
+["Sistem saraf","Sel saraf yang berfungsi menghantarkan impuls dari sistem saraf pusat menuju ke organ efektor (otot/kelenjar) adalah...",["Saraf sensorik","Saraf motorik","Saraf konektor","Saraf reseptor"],1,"Saraf motorik membawa perintah dari pusat saraf ke otot atau efektor."],
+["Sistem saraf","Bagian otak manusia yang berfungsi sebagai pusat keseimbangan tubuh dan koordinasi gerakan otot adalah...",["Otak besar (Cerebrum)","Otak kecil (Cerebellum)","Batang otak (Brainstem)","Sumsum lanjutan"],1,"Cerebellum mengatur keseimbangan dan koordinasi gerakan tubuh."],
+["Tekanan zat","Seorang penyelam menyelam sedalam 10 m di bawah permukaan air laut. Jika massa jenis air laut 1.000 kg/m³ dan g = 10 m/s², besar tekanan hidrostatis yang dialami penyelam adalah...",["1.000 N/m²","10.000 N/m²","100.000 N/m²","1.000.000 N/m²"],2,"Ph = ρ × g × h = 1.000 × 10 × 10 = 100.000 N/m²."],
+["Tekanan zat","Prinsip kerja dongkrak hidrolik dan mesin pengangkat mobil didasarkan pada...",["Hukum Archimedes","Hukum Pascal","Hukum Boyle","Hukum Newton"],1,"Dongkrak hidrolik bekerja berdasarkan Hukum Pascal."],
+["Tekanan zat","Sebuah balok bermassa jenis 0,6 g/cm³ dimasukkan ke dalam air (ρ = 1,0 g/cm³). Kondisi balok tersebut adalah...",["Tenggelam di dasar","Melayang di tengah","Mengapung","Terbawa arus"],2,"Massa jenis benda lebih kecil daripada massa jenis air sehingga balok mengapung."],
+["Tekanan zat","Tekanan yang diberikan pada zat cair dalam ruang tertutup diteruskan ke segala arah sama besar. Pernyataan ini merupakan...",["Hukum Pascal","Hukum Archimedes","Hukum Utama Hidrostatis","Hukum Gay-Lussac"],0,"Pernyataan tersebut adalah bunyi Hukum Pascal."],
+["Tekanan zat","Sebuah balok memiliki ukuran p = 5 cm, l = 2 cm, t = 2 cm dan berat 10 N. Agar menghasilkan tekanan TERKECIL pada lantai, balok diletakkan bertumpu pada sisi dengan luas...",["5 cm × 2 cm","2 cm × 2 cm","Semua posisi sama","Sisi tegak balok"],0,"Tekanan terkecil dihasilkan oleh bidang tekan paling luas, yaitu 5 cm × 2 cm."],
+["Tekanan zat","Alat yang digunakan untuk mengukur tekanan udara luar (atmosfer) adalah...",["Manometer","Barometer","Higrometer","Hydrometer"],1,"Barometer digunakan untuk mengukur tekanan atmosfer."],
+["Tekanan zat","Sebuah benda dicelupkan ke dalam air. Jika gaya ke atas yang dialami benda sama besar dengan berat benda di udara, maka benda akan...",["Tenggelam","Melayang","Mengapung","Terlepas"],1,"Jika gaya ke atas sama dengan berat benda, benda berada dalam keadaan melayang menurut kunci PDF."],
+["Sistem reproduksi","Organ reproduksi wanita yang berfungsi sebagai tempat fertilisasi (pembuahan) sel telur oleh sperma adalah...",["Ovarium","Tuba fallopi (Oviduk)","Uterus (Rahim)","Vagina"],1,"Tuba fallopi merupakan tempat bertemunya sel sperma dan sel telur."],
+["Sistem reproduksi","Hormon yang memicu penebalan dinding rahim (endometrium) persiapan implantasi embrio adalah...",["Estrogen dan Progesteron","FSH dan LH","Testosteron","Oksitosin"],0,"Menurut pembahasan PDF, estrogen dan progesteron berperan pada penebalan/penjagaan endometrium."],
+["Sistem reproduksi","Penyakit menular seksual yang disebabkan oleh infeksi bakteri Treponema pallidum adalah...",["Gonore","Sifilis (Raja Singa)","Herpes genitalis","AIDS"],1,"Sifilis disebabkan oleh bakteri Treponema pallidum."],
+["Sistem reproduksi","Saluran reproduksi pria yang berfungsi sebagai tempat pematangan dan penyimpanan sementara sperma adalah...",["Vas deferens","Epididimis","Uretra","Tubulus seminiferus"],1,"Epididimis merupakan tempat pematangan dan penyimpanan sementara sperma."],
+["Sistem reproduksi","Kelenjar reproduksi pria yang menghasilkan cairan bersifat basa untuk menetralkan keasaman saluran uretra adalah...",["Vesikula seminalis","Kelenjar prostat","Kelenjar Cowper (Bulbouretra)","Testis"],2,"Kunci dan pembahasan PDF menunjuk kelenjar Cowper."],
+["Sistem reproduksi","Peristiwa lepasnya sel telur (ovum) matang dari ovarium disebut...",["Ejakulasi","Menstruasi","Ovulasi","Fertilisasi"],2,"Ovulasi adalah pelepasan sel telur matang dari ovarium."],
+["Sistem reproduksi","Hormon utama pada pria yang memicu munculnya ciri kelamin sekunder (suara membesar, tumbuh jakun) adalah...",["Insulin","Testosteron","Progesteron","Prolaktin"],1,"Testosteron merupakan hormon androgen utama pada pria."],
+["Listrik","Sebuah kawat mengalirkan arus listrik sebesar 2 A selama 10 sekon. Besar muatan listrik yang mengalir adalah...",["5 C","12 C","20 C","200 C"],2,"Q = I × t = 2 A × 10 s = 20 C."],
+["Listrik","Kuat arus listrik (I) yang mengalir dalam hambatan R = 20 Ω yang terhubung sumber tegangan V = 100 V adalah...",["0,2 A","5 A","80 A","2.000 A"],1,"I = V/R = 100/20 = 5 A."],
+["Listrik","Tiga buah hambatan masing-masing 3 Ω, 6 Ω, dan 9 Ω dirangkai secara seri. Hambatan pengganti totalnya adalah...",["1,63 Ω","9 Ω","18 Ω","162 Ω"],2,"R seri = 3 + 6 + 9 = 18 Ω."],
+["Listrik","Sebuah rumah memakai 4 lampu 25 Watt selama 5 jam sehari. Energi listrik yang digunakan selama 1 bulan (30 hari) adalah...",["5 kWh","15 kWh","150 kWh","1.500 kWh"],1,"Energi = (4 × 25 W) × 5 jam × 30 hari = 15.000 Wh = 15 kWh."],
+["Listrik","Bahan yang sangat sulit atau tidak dapat menghantarkan arus listrik sama sekali disebut...",["Konduktor","Semikonduktor","Isolator","Superkonduktor"],2,"Isolator memiliki hambatan sangat tinggi sehingga tidak menghantarkan listrik dengan baik."],
+["Listrik","Alat ukur listrik yang digunakan secara khusus untuk mengukur kuat arus listrik adalah...",["Voltmeter","Amperemeter","Ohmmeter","Wattmeter"],1,"Amperemeter digunakan untuk mengukur kuat arus listrik."],
+["Listrik","Hukum Kirchhoff I mengenai arus masuk dan arus keluar pada titik cabang berdasarkan pada kekekalan...",["Energi","Muatan listrik","Tegangan","Daya listrik"],1,"Hukum Kirchhoff I berdasarkan kekekalan muatan listrik."],
+["Listrik","Dua muatan terpisah pada jarak r. Jika jarak kedua muatan diperbesar menjadi 2 kali semula, gaya Coulomb menjadi...",["2 kali semula","4 kali semula","1/2 kali semula","1/4 kali semula"],3,"Gaya Coulomb berbanding terbalik dengan kuadrat jarak; menjadi 1/4."],
+["Listrik","Sebuah seterika listrik spesifikasi 300 W, 220 V. Besar hambatan elemen pemanas seterika tersebut adalah...",["161,33 Ω","66.000 Ω","1,36 Ω","73,33 Ω"],0,"R = V²/P = 220²/300 = 161,33 Ω."],
+["Magnet","Sebuah magnet batang dipotong menjadi tiga bagian. Pernyataan yang BENAR mengenai potongan magnet tersebut adalah...",["Bagian tengah hanya memiliki satu kutub","Setiap potongan tetap memiliki kutub utara dan kutub selatan","Sifat kemagnetannya langsung hilang","Potongan magnet hanya menjadi besi biasa"],1,"Setiap potongan magnet tetap memiliki kutub utara dan selatan."],
+["Magnet","Cara membuat magnet dengan menggosokkan magnet tetap pada sebatang besi secara searah menyebabkan...",["Domain magnetik besi teratur dan searah","Elemen listrik dalam besi berpindah","Besi menjadi panas dan bermuatan positif","Terjadi gaya sentrifugal pada inti besi"],0,"Penggosokan searah menyejajarkan domain magnetik pada besi."],
+["Magnet","Alat yang bekerja berdasarkan prinsip gaya Lorentz untuk mengubah energi listrik menjadi energi gerak adalah...",["Generator","Motor listrik","Transformator","Solenoida"],1,"Motor listrik mengubah energi listrik menjadi gerak melalui gaya Lorentz."],
+["Magnet","Trafo memiliki lilitan primer 200 dan sekunder 1.000 lilitan. Jika tegangan primer 50 Volt, tegangan sekunder adalah...",["10 Volt","100 Volt","250 Volt","500 Volt"],2,"Vs/Vp = Ns/Np, sehingga Vs = (1.000/200) × 50 = 250 V."],
+["Magnet","Bahan yang sangat kuat ditarik oleh magnet (seperti besi dan baja) digolongkan sebagai bahan...",["Feromagnetik","Paramagnetik","Diamagnetik","Non-magnetik"],0,"Bahan feromagnetik ditarik kuat oleh magnet."],
+["Magnet","Penyebab utama timbulnya medan magnet alami bumi adalah...",["Gesekan angin matahari di atmosfer","Arus konveksi logam cair (besi/nikel) di inti luar bumi","Endapan batuan magnetit di dasar samudra","Rotasi bulan mengelilingi bumi"],1,"Gerakan logam cair di inti luar bumi menghasilkan medan magnet."],
+["Magnet","Alat yang berfungsi untuk mengubah energi gerak menjadi energi listrik melalui induksi elektromagnetik adalah...",["Motor listrik","Generator (dinamo)","Elektromagnet","Akumulator"],1,"Generator mengubah energi gerak menjadi energi listrik melalui induksi."],
+["Magnet","Transformator step-down berfungsi untuk...",["Menaikkan tegangan AC","Menurunkan tegangan AC","Mengubah AC menjadi DC","Menyimpan daya listrik"],1,"Trafo step-down menurunkan tegangan arus bolak-balik."],
+["Zat adiktif","Zat adiktif yang secara alami terdapat dalam biji kopi dan memberikan efek stimulan ringan adalah...",["Nikotin","Kafein","Alkohol","Teobromin"],1,"Kafein merupakan zat stimulan alami yang terdapat pada kopi."],
+["Zat adiktif","Zat psikotropika kelompok depresan bekerja dengan cara...",["Mempercepat kerja jantung","Menekan sistem saraf pusat","Menimbulkan ilusi/halusinasi","Meningkatkan kewaspadaan"],1,"Depresan menekan aktivitas sistem saraf pusat."],
+["Zat adiktif","Penggunaan amfetamin (ekstasi/sabu) pada pengguna memberikan efek berupa...",["Rasa mengantuk berat dan rileks","Peningkatan aktivitas fisik, denyut jantung, dan hilangnya lelah","Pendengaran dan penglihatan terganggu halusinasif","Penurunan daya tahan tubuh secara drastis instant"],1,"Menurut pembahasan PDF, amfetamin bersifat stimulan kuat."],
+["Zat adiktif","Dampak utama jangka panjang dari penggunaan penyalahgunaan narkotika jenis opiat/heroin adalah...",["Peningkatan daya ingat singkat","Ketergantungan fisik-psikologis parah & risiko overdosis fatal","Kerusakan permanen pita suara","Pertumbuhan tulang terhenti total"],1,"Opiat dapat menimbulkan ketergantungan berat dan risiko overdosis fatal."]
+];
+const socket = io({transports:["websocket","polling"]});
+let roomCode="",isHost=false,myId="",myName="",currentQuestion=null,answered=false,clockTimer=null,players=[];
+const $=id=>document.getElementById(id);
+function show(id){["home","lobby","game","finished"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
+function error(id,msg){$(id).textContent=msg||""}
+function ackButton(eventName,payload,success){socket.emit(eventName,payload,res=>{if(!res?.ok){error("homeError",res?.error||"Gagal.");return}success(res)})}
+$("createBtn").onclick=()=>{const name=$("teacherName").value.trim();error("homeError","");socket.emit("room:create",{name},res=>{if(!res?.ok)return error("homeError",res?.error||"Tidak bisa membuat ruang.");roomCode=res.code;myId=res.playerId;myName=name;isHost=true;enterLobby()})};
+$("joinBtn").onclick=()=>{const name=$("studentName").value.trim(),code=$("joinCode").value.trim();error("homeError","");socket.emit("room:join",{name,code},res=>{if(!res?.ok)return error("homeError",res?.error||"Tidak bisa bergabung.");roomCode=res.code;myId=res.playerId;myName=name;isHost=false;enterLobby()})};
+function enterLobby(){ $("roomCode").textContent=roomCode;$("hostHint").textContent=isHost?"Anda adalah guru/host. Mulai saat murid siap.":"Menunggu guru memulai battle."; $("startBtn").classList.toggle("hidden",!isHost);show("lobby")}
+$("backBtn").onclick=()=>{location.reload()};
+$("startBtn").onclick=()=>{error("lobbyError","");socket.emit("game:start",{questions:QUESTIONS},res=>{if(!res?.ok)error("lobbyError",res?.error||"Gagal memulai.")})};
+socket.on("room:update",data=>{if(data.code!==roomCode)return;players=data.players||[];$("playerCount").textContent=players.length;$("playerList").innerHTML=players.map(p=>`<div class="player">${p.isHost?"👩‍🏫":"🧑‍🎓"} ${esc(p.name)}${p.id===myId?" (Anda)":""}<small>${p.connected?"Online":"Terputus"} • ${p.score} poin</small></div>`).join("");renderRanks("liveRanks",players);const me=players.find(p=>p.id===myId);if(me)$("myScore").textContent=me.score});
+socket.on("game:question",q=>{currentQuestion=q;answered=false;show("game");$("topic").textContent=q.topic;$("qNumber").textContent=`Soal ${q.index+1} / ${q.total}`;$("bar").style.width=(q.index/q.total*100)+"%";$("question").textContent=q.text;$("feedback").textContent="Pilih satu jawaban. Jawaban benar mendapat 10 poin + bonus kecepatan hingga 5 poin.";$("nextBtn").classList.add("hidden");$("answers").innerHTML="";q.options.forEach((opt,i)=>{const b=document.createElement("button");b.className="answer";b.textContent="ABCD"[i]+". "+opt;b.onclick=()=>sendAnswer(i,b);$("answers").appendChild(b)});$("myName").textContent=myName;$("clock").textContent=q.seconds;if(clockTimer)clearInterval(clockTimer);clockTimer=setInterval(()=>{const left=Math.max(0,Math.ceil((q.endsAt-Date.now())/1000));$("clock").textContent=left;if(!left)clearInterval(clockTimer)},200)});
+function sendAnswer(choice,button){if(answered)return;answered=true;[...$("answers").children].forEach(b=>b.disabled=true);button.style.borderColor="#1769aa";$("feedback").textContent="Jawaban terkirim. Tunggu hasil dan pembahasan dari server.";socket.emit("game:answer",{choice},res=>{if(!res?.ok)$("feedback").textContent=res?.error||"Jawaban gagal dikirim."})}
+socket.on("room:progress",p=>$("progressText").textContent=`Jawaban masuk: ${p.answered}/${p.total}`);
+socket.on("game:reveal",r=>{if(clockTimer)clearInterval(clockTimer);[...$("answers").children].forEach((b,i)=>{b.classList.add(i===r.correctIndex?"good":"");b.disabled=true});$("feedback").textContent=`${r.timedOut?"⏰ Waktu habis. ":""}Jawaban benar: ${"ABCD"[r.correctIndex]}. ${currentQuestion.options[r.correctIndex]}. ${r.explanation}`;renderRanks("liveRanks",r.leaderboard);if(isHost){$("nextBtn").classList.remove("hidden");$("nextBtn").textContent=currentQuestion.index+1===40?"LIHAT HASIL AKHIR":"SOAL BERIKUTNYA"}})
+$("nextBtn").onclick=()=>socket.emit("game:next",res=>{if(!res?.ok)alert(res.error)});
+socket.on("game:finished",data=>{if(clockTimer)clearInterval(clockTimer);show("finished");const list=data.leaderboard||[];const me=list.find(p=>p.id===myId);$("finishMessage").textContent=me?`Skor Anda: ${me.score} poin. Terima kasih sudah mengikuti battle, ${myName}!`:"Pertandingan selesai.";renderRanks("finalRanks",list)});
+function renderRanks(id,list){$(id).innerHTML=(list||[]).slice(0,50).map((p,i)=>`<div class="rank"><span>${i+1}. ${esc(p.name)} ${p.id===myId?"(Anda)":""}</span><b>${p.score} poin</b></div>`).join("")}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+$("homeBtn").onclick=()=>location.reload();
+socket.on("connect_error",()=>error("homeError","Tidak terhubung ke server. Pastikan alamat web berasal dari hosting yang aktif."));
+</script></body></html>
